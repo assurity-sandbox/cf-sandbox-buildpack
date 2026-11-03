@@ -1,0 +1,11 @@
+{
+  "name": "cf-app-sandbox-claude",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.316"
+  }
+}

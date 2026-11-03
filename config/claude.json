@@ -1,0 +1,10 @@
+{
+  "model": "bedrock/claude-opus-4-6",
+  "apiKeyHelper": "printenv BIFROST_API_KEY",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://bifrost-platform.private.ap.assurity.cloud/anthropic",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "bedrock/claude-opus-4-6",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "bedrock/claude-opus-4-6",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "bedrock/claude-opus-4-6"
+  }
+}

@@ -1,0 +1,4 @@
+# CF's lifecycle shell starts interactive Bash, which reads this file after
+# launcher profiles. The uploaded project's shell hooks stay in workspace/.
+source "$HOME/.profile.d/sandbox.sh"
+cd -- "$HOME/workspace" || return 1

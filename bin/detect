@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Explicit selection also works with an empty source tree. Do not register this
+# catch-all buildpack ahead of language buildpacks for automatic detection.
+if [[ ${CF_STACK:-} != cflinuxfs5 ]]; then
+  echo 'cf-app-sandbox-buildpack requires CF_STACK=cflinuxfs5' >&2
+  exit 1
+fi
+echo 'cf-app-sandbox-buildpack 1.0.0'

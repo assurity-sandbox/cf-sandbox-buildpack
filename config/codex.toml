@@ -1,0 +1,11 @@
+model = "bedrock/claude-opus-4-6"
+model_provider = "bifrost"
+web_search = "disabled"
+
+[model_providers.bifrost]
+name = "Bifrost"
+base_url = "https://bifrost-platform.private.ap.assurity.cloud/openai/v1"
+wire_api = "responses"
+env_key = "BIFROST_API_KEY"
+requires_openai_auth = false
+supports_websockets = false

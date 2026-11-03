@@ -1,0 +1,11 @@
+{
+  "name": "cf-app-sandbox-codex",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@openai/codex": "0.166.0"
+  }
+}

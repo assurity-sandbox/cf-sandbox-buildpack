@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set +x
+set -euo pipefail
+# No staging command needs the runtime credential, including version checks.
+unset BIFROST_API_KEY
+
+fail() { echo "cf-app-sandbox-buildpack: $*" >&2; exit 1; }
+[[ $# == 4 || $# == 5 ]] || fail 'usage: bin/finalize BUILD_DIR CACHE_DIR DEPS_DIR INDEX [PROFILE_DIR]'
+[[ ${CF_STACK:-} == cflinuxfs5 ]] || fail 'only CF_STACK=cflinuxfs5 is supported'
+harness=${HARNESS-codex}
+case "$harness" in
+  codex|claude) ;;
+  *) fail 'HARNESS must be codex or claude (default: codex); change it and restage' ;;
+esac
+[[ $4 =~ ^[0-9]+$ ]] || fail 'dependency index must be a nonnegative integer'
+case "$(uname -sm)" in
+  'Linux x86_64') arch=x64 ;;
+  'Linux aarch64') arch=arm64 ;;
+  *) fail 'only Linux x86_64 and aarch64 are supported' ;;
+esac
+
+buildpack=$(cd -- "$(dirname -- "$0")/.." && pwd -P)
+build=$(cd -- "$1" && pwd -P)
+mkdir -p -- "$2" "$3/$4"
+cache=$(cd -- "$2" && pwd -P)
+dep=$(cd -- "$3/$4" && pwd -P)
+node_version=22.23.4
+tooling="$buildpack/tooling/$harness"
+lock_hash=$(cat "$tooling/package.json" "$tooling/package-lock.json" | sha256sum | cut -d ' ' -f1)
+cache="$cache/cf-app-sandbox-v1/$CF_STACK-$arch-node-$node_version-$harness-$lock_hash"
+mkdir -p -- "$cache" "$dep/node" "$dep/tools"
+archive="node-v$node_version-linux-$arch.tar.xz"
+checksum=$(awk -v file="$archive" '$2 == file {print $1}' "$buildpack/tooling/node-sha256.txt")
+[[ -n $checksum ]] || fail "missing pinned checksum for $archive"
+
+scratch=$(mktemp -d)
+trap 'rm -rf -- "$scratch"' EXIT
+mkdir "$scratch/home"
+touch "$scratch/user.npmrc" "$scratch/global.npmrc"
+if [[ ! -f $cache/$archive ]]; then
+  echo "-----> Downloading Node $node_version ($arch)"
+  curl -q --fail --silent --show-error --location --retry 3 \
+    --proto '=https' --proto-redir '=https' --tlsv1.2 \
+    "https://nodejs.org/dist/v$node_version/$archive" -o "$scratch/$archive"
+  printf '%s  %s\n' "$checksum" "$scratch/$archive" | sha256sum --check --status \
+    || fail 'Node download failed SHA-256 verification'
+  mv -- "$scratch/$archive" "$cache/$archive"
+fi
+printf '%s  %s\n' "$checksum" "$cache/$archive" | sha256sum --check --status \
+  || fail 'cached Node archive failed SHA-256 verification; clear the buildpack cache and restage'
+tar -xJf "$cache/$archive" --strip-components=1 -C "$dep/node"
+cp -- "$tooling/package.json" "$tooling/package-lock.json" "$dep/tools/"
+
+# Run npm away from the uploaded source, with no user/project npmrc, keys,
+# inherited npm overrides, or lifecycle scripts. npm verifies lockfile SRI on
+# both downloaded and cached packages. Only archives, not installations, cache.
+echo "-----> Installing locked $harness tooling"
+(
+  cd "$dep/tools"
+  env -i PATH="$dep/node/bin:/usr/bin:/bin" HOME="$scratch/home" \
+    "$dep/node/bin/npm" ci --ignore-scripts --no-audit --no-fund \
+    --include=optional --cache "$cache/npm" --prefer-offline \
+    --userconfig "$scratch/user.npmrc" --globalconfig "$scratch/global.npmrc"
+)
+if [[ $harness == claude ]]; then
+  # This pinned Claude release normally copies the native binary in postinstall.
+  # Link it directly instead; no npm lifecycle scripts or extra downloads run.
+  native="../@anthropic-ai/claude-code-linux-$arch/claude"
+  [[ -x $dep/tools/node_modules/.bin/$native ]] || fail 'locked Claude native executable is missing'
+  ln -sfn -- "$native" "$dep/tools/node_modules/.bin/claude"
+fi
+env -i PATH="$dep/node/bin:/usr/bin:/bin" HOME="$scratch/home" \
+  "$dep/node/bin/node" --version
+env -i PATH="$dep/node/bin:/usr/bin:/bin" HOME="$scratch/home" \
+  "$dep/tools/node_modules/.bin/$harness" --version
+
+# Move the uploaded entries once, without dereferencing links, copying file
+# contents, changing permissions, or special-casing an existing workspace/.
+# The temporary sibling must not be removed on error: it could hold source.
+source_tree=$(mktemp -d "$(dirname -- "$build")/sandbox-source.XXXXXX")
+chmod --reference="$build" "$source_tree"
+shopt -s dotglob nullglob
+entries=("$build"/*)
+if (( ${#entries[@]} )); then
+  mv -- "${entries[@]}" "$source_tree/"
+fi
+mv -- "$source_tree" "$build/workspace"
+
+mkdir -p "$build/.profile.d"
+# The template preserves runtime HOME; only INDEX and HARNESS are substituted,
+# both validated above. No staging paths enter the droplet.
+sed -e "s/@INDEX@/$4/g" -e "s/@HARNESS@/$harness/g" \
+  "$buildpack/config/profile.sh" > "$build/.profile.d/sandbox.sh"
+cp -- "$buildpack/config/bashrc" "$build/.bashrc"
+case "$harness" in
+  codex)
+    mkdir "$build/.codex"
+    cp -- "$buildpack/config/codex.toml" "$build/.codex/config.toml"
+    ;;
+  claude)
+    mkdir "$build/.claude"
+    cp -- "$buildpack/config/claude.json" "$build/.claude/settings.json"
+    ;;
+esac
+echo "-----> Sandbox ready: $harness; source will be /home/vcap/app/workspace"
