@@ -1,10 +1,10 @@
 {
-  "model": "bedrock/claude-opus-4-6",
+  "model": "bedrock/claude-haiku",
   "apiKeyHelper": "printenv BIFROST_API_KEY",
   "env": {
-    "ANTHROPIC_BASE_URL": "https://bifrost-platform.private.ap.assurity.cloud/anthropic",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "bedrock/claude-opus-4-6",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "bedrock/claude-opus-4-6",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "bedrock/claude-opus-4-6"
+    "ANTHROPIC_BASE_URL": "https://bifrost.app.sandpit-00.partnerfoundry.com/anthropic",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "bedrock/claude-haiku",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "bedrock/claude-haiku",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "bedrock/claude-haiku"
   }
 }
