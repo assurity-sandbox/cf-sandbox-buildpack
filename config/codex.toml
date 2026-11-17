@@ -4,7 +4,7 @@ web_search = "disabled"
 
 [model_providers.bifrost]
 name = "Bifrost"
-base_url = "https://bifrost.app.sandpit-00.partnerfoundry.com/openai/v1"
+base_url = "https://bifrost-platform.private.sandpit-00.partnerfoundry.com/openai/v1"
 wire_api = "responses"
 env_key = "BIFROST_API_KEY"
 requires_openai_auth = false
